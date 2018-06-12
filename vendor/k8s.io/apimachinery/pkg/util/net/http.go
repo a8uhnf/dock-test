@@ -19,7 +19,6 @@ package net
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -62,9 +61,6 @@ func JoinPreservingTrailingSlash(elem ...string) string {
 // differentiate probable errors in connection behavior between normal "this is
 // disconnected" should use the method.
 func IsProbableEOF(err error) bool {
-	if err == nil {
-		return false
-	}
 	if uerr, ok := err.(*url.Error); ok {
 		err = uerr.Err
 	}
@@ -91,8 +87,8 @@ func SetOldTransportDefaults(t *http.Transport) *http.Transport {
 		// ProxierWithNoProxyCIDR allows CIDR rules in NO_PROXY
 		t.Proxy = NewProxierWithNoProxyCIDR(http.ProxyFromEnvironment)
 	}
-	if t.DialContext == nil {
-		t.DialContext = defaultTransport.DialContext
+	if t.Dial == nil {
+		t.Dial = defaultTransport.Dial
 	}
 	if t.TLSHandshakeTimeout == 0 {
 		t.TLSHandshakeTimeout = defaultTransport.TLSHandshakeTimeout
@@ -120,7 +116,7 @@ type RoundTripperWrapper interface {
 	WrappedRoundTripper() http.RoundTripper
 }
 
-type DialFunc func(ctx context.Context, net, addr string) (net.Conn, error)
+type DialFunc func(net, addr string) (net.Conn, error)
 
 func DialerFor(transport http.RoundTripper) (DialFunc, error) {
 	if transport == nil {
@@ -129,7 +125,7 @@ func DialerFor(transport http.RoundTripper) (DialFunc, error) {
 
 	switch transport := transport.(type) {
 	case *http.Transport:
-		return transport.DialContext, nil
+		return transport.Dial, nil
 	case RoundTripperWrapper:
 		return DialerFor(transport.WrappedRoundTripper())
 	default:
@@ -260,11 +256,8 @@ func isDefault(transportProxier func(*http.Request) (*url.URL, error)) bool {
 // NewProxierWithNoProxyCIDR constructs a Proxier function that respects CIDRs in NO_PROXY and delegates if
 // no matching CIDRs are found
 func NewProxierWithNoProxyCIDR(delegate func(req *http.Request) (*url.URL, error)) func(req *http.Request) (*url.URL, error) {
-	// we wrap the default method, so we only need to perform our check if the NO_PROXY (or no_proxy) envvar has a CIDR in it
+	// we wrap the default method, so we only need to perform our check if the NO_PROXY envvar has a CIDR in it
 	noProxyEnv := os.Getenv("NO_PROXY")
-	if noProxyEnv == "" {
-		noProxyEnv = os.Getenv("no_proxy")
-	}
 	noProxyRules := strings.Split(noProxyEnv, ",")
 
 	cidrs := []*net.IPNet{}
@@ -280,7 +273,17 @@ func NewProxierWithNoProxyCIDR(delegate func(req *http.Request) (*url.URL, error
 	}
 
 	return func(req *http.Request) (*url.URL, error) {
-		ip := net.ParseIP(req.URL.Hostname())
+		host := req.URL.Host
+		// for some urls, the Host is already the host, not the host:port
+		if net.ParseIP(host) == nil {
+			var err error
+			host, _, err = net.SplitHostPort(req.URL.Host)
+			if err != nil {
+				return delegate(req)
+			}
+		}
+
+		ip := net.ParseIP(host)
 		if ip == nil {
 			return delegate(req)
 		}

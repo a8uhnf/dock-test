@@ -19,9 +19,9 @@ package versioning
 import (
 	"io"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 // NewCodecForScheme is a convenience method for callers that are using a scheme.
@@ -33,7 +33,7 @@ func NewCodecForScheme(
 	encodeVersion runtime.GroupVersioner,
 	decodeVersion runtime.GroupVersioner,
 ) runtime.Codec {
-	return NewCodec(encoder, decoder, runtime.UnsafeObjectConvertor(scheme), scheme, scheme, nil, encodeVersion, decodeVersion)
+	return NewCodec(encoder, decoder, runtime.UnsafeObjectConvertor(scheme), scheme, scheme, scheme, nil, encodeVersion, decodeVersion)
 }
 
 // NewDefaultingCodecForScheme is a convenience method for callers that are using a scheme.
@@ -45,7 +45,7 @@ func NewDefaultingCodecForScheme(
 	encodeVersion runtime.GroupVersioner,
 	decodeVersion runtime.GroupVersioner,
 ) runtime.Codec {
-	return NewCodec(encoder, decoder, runtime.UnsafeObjectConvertor(scheme), scheme, scheme, scheme, encodeVersion, decodeVersion)
+	return NewCodec(encoder, decoder, runtime.UnsafeObjectConvertor(scheme), scheme, scheme, scheme, scheme, encodeVersion, decodeVersion)
 }
 
 // NewCodec takes objects in their internal versions and converts them to external versions before
@@ -56,6 +56,7 @@ func NewCodec(
 	decoder runtime.Decoder,
 	convertor runtime.ObjectConvertor,
 	creater runtime.ObjectCreater,
+	copier runtime.ObjectCopier,
 	typer runtime.ObjectTyper,
 	defaulter runtime.ObjectDefaulter,
 	encodeVersion runtime.GroupVersioner,
@@ -66,6 +67,7 @@ func NewCodec(
 		decoder:   decoder,
 		convertor: convertor,
 		creater:   creater,
+		copier:    copier,
 		typer:     typer,
 		defaulter: defaulter,
 
@@ -80,6 +82,7 @@ type codec struct {
 	decoder   runtime.Decoder
 	convertor runtime.ObjectConvertor
 	creater   runtime.ObjectCreater
+	copier    runtime.ObjectCopier
 	typer     runtime.ObjectTyper
 	defaulter runtime.ObjectDefaulter
 
@@ -120,7 +123,12 @@ func (c *codec) Decode(data []byte, defaultGVK *schema.GroupVersionKind, into ru
 		if c.defaulter != nil {
 			// create a copy to ensure defaulting is not applied to the original versioned objects
 			if isVersioned {
-				versioned.Objects = []runtime.Object{obj.DeepCopyObject()}
+				copied, err := c.copier.Copy(obj)
+				if err != nil {
+					utilruntime.HandleError(err)
+					copied = obj
+				}
+				versioned.Objects = []runtime.Object{copied}
 			}
 			c.defaulter.Default(obj)
 		} else {
@@ -143,7 +151,12 @@ func (c *codec) Decode(data []byte, defaultGVK *schema.GroupVersionKind, into ru
 	// Convert if needed.
 	if isVersioned {
 		// create a copy, because ConvertToVersion does not guarantee non-mutation of objects
-		versioned.Objects = []runtime.Object{obj.DeepCopyObject()}
+		copied, err := c.copier.Copy(obj)
+		if err != nil {
+			utilruntime.HandleError(err)
+			copied = obj
+		}
+		versioned.Objects = []runtime.Object{copied}
 	}
 
 	// perform defaulting if requested
@@ -167,27 +180,9 @@ func (c *codec) Decode(data []byte, defaultGVK *schema.GroupVersionKind, into ru
 // Encode ensures the provided object is output in the appropriate group and version, invoking
 // conversion if necessary. Unversioned objects (according to the ObjectTyper) are output as is.
 func (c *codec) Encode(obj runtime.Object, w io.Writer) error {
-	switch obj := obj.(type) {
-	case *runtime.Unknown:
+	switch obj.(type) {
+	case *runtime.Unknown, runtime.Unstructured:
 		return c.encoder.Encode(obj, w)
-	case runtime.Unstructured:
-		// An unstructured list can contain objects of multiple group version kinds. don't short-circuit just
-		// because the top-level type matches our desired destination type. actually send the object to the converter
-		// to give it a chance to convert the list items if needed.
-		if _, ok := obj.(*unstructured.UnstructuredList); !ok {
-			// avoid conversion roundtrip if GVK is the right one already or is empty (yes, this is a hack, but the old behaviour we rely on in kubectl)
-			objGVK := obj.GetObjectKind().GroupVersionKind()
-			if len(objGVK.Version) == 0 {
-				return c.encoder.Encode(obj, w)
-			}
-			targetGVK, ok := c.encodeVersion.KindForGroupVersionKinds([]schema.GroupVersionKind{objGVK})
-			if !ok {
-				return runtime.NewNotRegisteredGVKErrForTarget(objGVK, c.encodeVersion)
-			}
-			if targetGVK == objGVK {
-				return c.encoder.Encode(obj, w)
-			}
-		}
 	}
 
 	gvks, isUnversioned, err := c.typer.ObjectKinds(obj)

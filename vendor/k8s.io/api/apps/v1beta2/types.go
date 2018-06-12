@@ -82,8 +82,6 @@ type Scale struct {
 // +genclient:method=UpdateScale,verb=update,subresource=scale,input=Scale,result=Scale
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DEPRECATED - This group version of StatefulSet is deprecated by apps/v1/StatefulSet. See the release notes for
-// more information.
 // StatefulSet represents a set of pods with consistent identities.
 // Identities are defined as:
 //  - Network: A single stable DNS and hostname.
@@ -296,8 +294,6 @@ type StatefulSetList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DEPRECATED - This group version of Deployment is deprecated by apps/v1/Deployment. See the release notes for
-// more information.
 // Deployment enables declarative updates for Pods and ReplicaSets.
 type Deployment struct {
 	metav1.TypeMeta `json:",inline"`
@@ -359,8 +355,8 @@ type DeploymentSpec struct {
 
 const (
 	// DefaultDeploymentUniqueLabelKey is the default key of the selector that is added
-	// to existing ReplicaSets (and label key that is added to its pods) to prevent the existing ReplicaSets
-	// to select new pods (and old pods being select by new ReplicaSet).
+	// to existing RCs (and label key that is added to its pods) to prevent the existing RCs
+	// to select new pods (and old pods being select by new RC).
 	DefaultDeploymentUniqueLabelKey string = "pod-template-hash"
 )
 
@@ -385,7 +381,7 @@ const (
 	// Kill all existing pods before creating new ones.
 	RecreateDeploymentStrategyType DeploymentStrategyType = "Recreate"
 
-	// Replace the old ReplicaSets by new one using rolling update i.e gradually scale down the old ReplicaSets and scale up the new one.
+	// Replace the old RCs by new one using rolling update i.e gradually scale down the old RCs and scale up the new one.
 	RollingUpdateDeploymentStrategyType DeploymentStrategyType = "RollingUpdate"
 )
 
@@ -396,9 +392,9 @@ type RollingUpdateDeployment struct {
 	// Absolute number is calculated from percentage by rounding down.
 	// This can not be 0 if MaxSurge is 0.
 	// Defaults to 25%.
-	// Example: when this is set to 30%, the old ReplicaSet can be scaled down to 70% of desired pods
-	// immediately when the rolling update starts. Once new pods are ready, old ReplicaSet
-	// can be scaled down further, followed by scaling up the new ReplicaSet, ensuring
+	// Example: when this is set to 30%, the old RC can be scaled down to 70% of desired pods
+	// immediately when the rolling update starts. Once new pods are ready, old RC
+	// can be scaled down further, followed by scaling up the new RC, ensuring
 	// that the total number of pods available at all times during the update is at
 	// least 70% of desired pods.
 	// +optional
@@ -410,10 +406,10 @@ type RollingUpdateDeployment struct {
 	// This can not be 0 if MaxUnavailable is 0.
 	// Absolute number is calculated from percentage by rounding up.
 	// Defaults to 25%.
-	// Example: when this is set to 30%, the new ReplicaSet can be scaled up immediately when
+	// Example: when this is set to 30%, the new RC can be scaled up immediately when
 	// the rolling update starts, such that the total number of old and new pods do not exceed
 	// 130% of desired pods. Once old pods have been killed,
-	// new ReplicaSet can be scaled up further, ensuring that total number of pods running
+	// new RC can be scaled up further, ensuring that total number of pods running
 	// at any time during the update is atmost 130% of desired pods.
 	// +optional
 	MaxSurge *intstr.IntOrString `json:"maxSurge,omitempty" protobuf:"bytes,2,opt,name=maxSurge"`
@@ -661,8 +657,6 @@ type DaemonSetCondition struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DEPRECATED - This group version of DaemonSet is deprecated by apps/v1/DaemonSet. See the release notes for
-// more information.
 // DaemonSet represents the configuration of a daemon set.
 type DaemonSet struct {
 	metav1.TypeMeta `json:",inline"`
@@ -709,8 +703,6 @@ type DaemonSetList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DEPRECATED - This group version of ReplicaSet is deprecated by apps/v1/ReplicaSet. See the release notes for
-// more information.
 // ReplicaSet ensures that a specified number of pod replicas are running at any given time.
 type ReplicaSet struct {
 	metav1.TypeMeta `json:",inline"`
@@ -837,8 +829,6 @@ type ReplicaSetCondition struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DEPRECATED - This group version of ControllerRevision is deprecated by apps/v1/ControllerRevision. See the
-// release notes for more information.
 // ControllerRevision implements an immutable snapshot of state data. Clients
 // are responsible for serializing and deserializing the objects that contain
 // their internal state.
