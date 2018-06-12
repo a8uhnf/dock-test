@@ -45,71 +45,12 @@ type Event struct {
 	resourceType string
 }
 
-func CreateInformerQueue() {
-	serverStartTime = time.Now().Local()
-	var eventHandler handlers.Handler
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-
-	var kubeClient kubernetes.Interface
-	_, err := rest.InClusterConfig()
-
-	if err != nil {
-		kubeClient = utils.GetClientOutOfCluster()
-	} else {
-		kubeClient = utils.GetClient()
-	}
-	eventHandler = &handlers.Logger{Client: kubeClient}
-	informer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(options meta_v1.ListOptions) (runtime.Object, error) {
-				options.LabelSelector = "app=secret-sync"
-				return kubeClient.CoreV1().Secrets(meta_v1.NamespaceAll).List(options)
-			},
-			WatchFunc: func(options meta_v1.ListOptions) (watch.Interface, error) {
-				log.Println(options)
-				options.LabelSelector = "app=secret-sync"
-				return kubeClient.CoreV1().Secrets(meta_v1.NamespaceAll).Watch(options)
-			},
-		},
-		&api_v1.Secret{},
-		0, //Skip resync
-		cache.Indexers{},
-	)
-
-	c := newResourceController(kubeClient, eventHandler, informer, "secret")
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-
-	go c.Run(stopCh)
-
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			key, err := cache.MetaNamespaceKeyFunc(obj)
-			if err == nil {
-				queue.Add(key)
-			}
-		},
-		DeleteFunc: func(obj interface{}) {
-			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-			if err == nil {
-				queue.Add(key)
-			}
-		},
-	})
-
-	sigterm := make(chan os.Signal, 1)
-	signal.Notify(sigterm, syscall.SIGTERM)
-	signal.Notify(sigterm, syscall.SIGINT)
-	<-sigterm
-}
-
 func CreateInformerQueueNs() {
 	var eventHandler handlers.Handler
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	// queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	var kubeClient kubernetes.Interface
 	_, err := rest.InClusterConfig()
-
 	if err != nil {
 		kubeClient = utils.GetClientOutOfCluster()
 	} else {
@@ -119,11 +60,11 @@ func CreateInformerQueueNs() {
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options meta_v1.ListOptions) (runtime.Object, error) {
-				return kubeClient.CoreV1().Namespaces().List(options)
+				return kubeClient.ExtensionsV1beta1().Deployments("").List(options)
 			},
 			WatchFunc: func(options meta_v1.ListOptions) (watch.Interface, error) {
 				log.Println(options)
-				return kubeClient.CoreV1().Namespaces().Watch(options)
+				return kubeClient.ExtensionsV1beta1().Deployments("").Watch(options)
 			},
 		},
 		&api_v1.Namespace{},
@@ -136,9 +77,10 @@ func CreateInformerQueueNs() {
 	defer close(stopCh)
 
 	go c.Run(stopCh)
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	/* informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(obj)
+			fmt.Println("XCCXCXCCXCXCCXC")
 			if err == nil {
 				queue.Add(key)
 			}
@@ -149,7 +91,7 @@ func CreateInformerQueueNs() {
 				queue.Add(key)
 			}
 		},
-	})
+	}) */
 	sigterm := make(chan os.Signal, 1)
 	signal.Notify(sigterm, syscall.SIGTERM)
 	signal.Notify(sigterm, syscall.SIGINT)
