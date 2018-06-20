@@ -12,7 +12,7 @@ import (
 	"github.com/a8uhnf/container-h/pkg/event"
 	"github.com/a8uhnf/container-h/pkg/handlers"
 	"github.com/a8uhnf/container-h/pkg/utils"
-	api_v1 "k8s.io/api/core/v1"
+	api_v1 "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -67,12 +67,12 @@ func CreateInformerQueueNs() {
 				return kubeClient.ExtensionsV1beta1().Deployments("").Watch(options)
 			},
 		},
-		&api_v1.Namespace{},
+		&api_v1.Deployment{},
 		0, //Skip resync
 		cache.Indexers{},
 	)
 
-	c := newResourceController(kubeClient, eventHandler, informer, "namespace")
+	c := newResourceController(kubeClient, eventHandler, informer, "deployment")
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
