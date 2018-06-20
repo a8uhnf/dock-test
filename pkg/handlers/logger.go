@@ -15,10 +15,6 @@ type Logger struct {
 }
 
 func (l *Logger) ObjectCreated(obj interface{}) {
-	/* nses, err := l.Client.CoreV1().Namespaces().List(meta_v1.ListOptions{})
-	if err != nil {
-		panic(err)
-	} */
 	switch obj.(type) {
 	case *api_v1.Deployment:
 		fmt.Println("New Deployment")

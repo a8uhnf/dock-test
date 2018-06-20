@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	go controller.CreateInformerQueueNs()
+	controller.CreateInformerQueueNs()
 	// go controller.CreateInformerQueue()
-	select {}
+	//select {}
 }

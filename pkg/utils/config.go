@@ -5,6 +5,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	api_v1 "k8s.io/api/core/v1"
+	ext_v1 "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -56,6 +57,8 @@ func GetObjectMetaData(obj interface{}) meta_v1.ObjectMeta {
 	case *api_v1.Secret:
 		objectMeta = object.ObjectMeta
 	case *api_v1.Namespace:
+		objectMeta = object.ObjectMeta
+	case *ext_v1.Deployment:
 		objectMeta = object.ObjectMeta
 	}
 	return objectMeta

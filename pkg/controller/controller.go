@@ -47,6 +47,7 @@ type Event struct {
 
 func CreateInformerQueueNs() {
 	var eventHandler handlers.Handler
+	serverStartTime = time.Now()
 	// queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	var kubeClient kubernetes.Interface
@@ -212,6 +213,9 @@ func newResourceController(client kubernetes.Interface, eventHandler handlers.Ha
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			newEvent.key, err = cache.MetaNamespaceKeyFunc(obj)
+			if err != nil {
+				logrus.Fatalln(err)
+			}
 			newEvent.eventType = "create"
 			newEvent.resourceType = resourceType
 			logrus.WithField("pkg", "kubewatch-"+resourceType).Infof("Processing add to %v: %s", resourceType, newEvent.key)
