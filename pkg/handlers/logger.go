@@ -8,13 +8,18 @@ import (
 	api_v1 "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	d_client"github.com/docker/docker/client"
 )
 
 type Logger struct {
 	Client kubernetes.Interface
+	DockerClient *d_client.Client
 }
 
 func (l *Logger) ObjectCreated(obj interface{}) {
+	// d_client.NewEnvClient()
+
+	
 	switch obj.(type) {
 	case *api_v1.Deployment:
 		fmt.Println("New Deployment")

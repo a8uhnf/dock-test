@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	d_client "github.com/docker/docker/client"
 )
 
 const maxRetries = 5
@@ -57,7 +58,17 @@ func CreateInformerQueueNs() {
 	} else {
 		kubeClient = utils.GetClient()
 	}
-	eventHandler = &handlers.Logger{Client: kubeClient}
+
+	var dockerClient *d_client.Client
+
+	dockerClient, err = d_client.NewEnvClient()
+	if err != nil {
+		logrus.Fatalln(err)
+	}
+	eventHandler = &handlers.Logger{
+		Client: kubeClient,
+		DockerClient: dockerClient,
+	}
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options meta_v1.ListOptions) (runtime.Object, error) {
